@@ -11,7 +11,7 @@ const subStyle = chalk.magentaBright
 const postStyle = chalk.blue
 const errorStyle = chalk.red
 
-let sort = 'Hot'
+let sort = 'hot'
 
 program
 	.version('1.0.0', '-v, --version')
@@ -38,7 +38,12 @@ const showError = (error) => {
 
 const load = async () => {
 	try {
-		const response = await got('reddit.com/' + sub + '.json', {json: true});
+		let params = ''
+		if(sort==='top') params = '?t=all'
+		const response = await got(
+			'reddit.com/' + sub + '/' + sort + '.json' + params,
+			{json: true}
+		);
 		if(!response.body.data.children.length) throw('This subreddit does not exist')
 		else display(response.body.data.children)
 		spinner.succeed(response.body.data.children.length + ' posts loaded')
@@ -55,12 +60,12 @@ const iteration = () => {
 				    type: 'list',
 				    name: 'command',
 				    message: 'What next?',
-    				choices: ['Next page', 'Other subreddit', 'Sort by ' + (sort==='Hot')?'Top All Time':'Hot'],
+    				choices: ['Next page', 'Other subreddit', 'Sort by ' + ((sort==='hot')?'Top All Time':'Hot')],
 			  	}
 			])
-			.then(answers => {
-				log(answers)
-				switch(answers.command) {
+			.then(answer => {
+				log(answer.command)
+				switch(answer.command) {
 					case 'Next page':
 						log('pls')
 						break
@@ -68,14 +73,15 @@ const iteration = () => {
 						log('new iteration')
 						break
 					case 'Sort by Top All Time':
-						sort = 'Top All Time'
+						sort = 'top'
 						break
 					case 'Sort by Hot':
-						sort = 'Hot'
+						sort = 'hot'
 						break
 					default:
 						log('default')
 				}
+				iteration()
 			})
 	})
 }
