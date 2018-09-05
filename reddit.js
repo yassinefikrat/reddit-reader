@@ -12,6 +12,9 @@ const postStyle = chalk.blue
 const errorStyle = chalk.red
 
 let sort = 'hot'
+let afterOrBefore = ''
+let firstPost = ""
+let lastPost = ""
 
 program
 	.version('1.0.0', '-v, --version')
@@ -30,6 +33,8 @@ const display = (posts) => {
 	posts.forEach( (post, index) => {
 		log(postStyle(post.data.title))
 	})
+	firstPost = posts[0].data.id
+	lastPost = posts[posts.length-1].data.id
 }
 
 const showError = (error) => {
@@ -40,6 +45,10 @@ const load = async () => {
 	try {
 		let params = ''
 		if(sort==='top') params = '?t=all'
+		if(afterOrBefore) {
+			if (params === '') params = '?'+afterOrBefore
+			else params += '&'+afterOrBefore
+		}
 		const response = await got(
 			'reddit.com/' + sub + '/' + sort + '.json' + params,
 			{json: true}
@@ -67,16 +76,18 @@ const iteration = () => {
 				log(answer.command)
 				switch(answer.command) {
 					case 'Next page':
-						log('pls')
+						afterOrBefore = 'after=t3_'+lastPost
 						break
 					case 'Other subreddit':
 						log('new iteration')
 						break
 					case 'Sort by Top All Time':
 						sort = 'top'
+						afterOrBefore = ''
 						break
 					case 'Sort by Hot':
 						sort = 'hot'
+						afterOrBefore = ''
 						break
 					default:
 						log('default')
