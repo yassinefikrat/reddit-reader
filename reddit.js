@@ -69,7 +69,7 @@ const iteration = () => {
 				    type: 'list',
 				    name: 'command',
 				    message: 'What next?',
-    				choices: ['Next page', 'Other subreddit', 'Sort by ' + ((sort==='hot')?'Top All Time':'Hot')],
+    				choices: ['Next page', 'Previous page', 'Other subreddit', 'Sort by ' + ((sort==='hot')?'Top All Time':'Hot')],
 			  	}
 			])
 			.then(answer => {
@@ -77,6 +77,9 @@ const iteration = () => {
 				switch(answer.command) {
 					case 'Next page':
 						afterOrBefore = 'after=t3_'+lastPost
+						break
+					case 'Previous page':
+						afterOrBefore = 'before=t3_'+firstPost
 						break
 					case 'Other subreddit':
 						log('new iteration')
