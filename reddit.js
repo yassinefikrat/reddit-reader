@@ -5,7 +5,10 @@ const boxen = require("boxen");
 const got = require("got");
 const inquirer = require("inquirer");
 
+inquirer.registerPrompt("autosubmit", require("inquirer-autosubmit-prompt"));
+
 const log = console.log;
+const clear = console.clear;
 const subStyle = chalk.magentaBright;
 const postStyle = chalk.blue;
 const errorStyle = chalk.red;
@@ -14,6 +17,8 @@ let sort = "hot";
 let afterOrBefore = "";
 let firstPost = "";
 let lastPost = "";
+let browsing = false;
+let currentPost = {};
 
 program
 	.version("1.0.0", "-v, --version")
@@ -28,13 +33,23 @@ if (typeof sub === "undefined") sub = "r/all";
 const spinner = ora("Opening " + subStyle(sub)).start();
 
 const display = posts => {
-	log();
+	clear();
 	posts.forEach((post, index) => {
 		log(postStyle(post.data.title));
 	});
+	log();
 	firstPost = posts[0].data.id;
 	lastPost = posts[posts.length - 1].data.id;
 };
+
+const displayPost = post => {
+	clear();
+	log(postStyle(post.data.title));
+	log(post.data.selftext);
+	log();
+};
+
+const titleOfPost = post => (post.data.title ? post.data.title : "");
 
 const showError = error => {
 	log(errorStyle(error));
@@ -54,62 +69,100 @@ const load = async () => {
 		);
 		if (!response.body.data.children.length)
 			throw "This subreddit does not exist";
-		else display(response.body.data.children);
-		spinner.succeed(response.body.data.children.length + " posts loaded");
+		else {
+			spinner.succeed(
+				response.body.data.children.length + " posts loaded"
+			);
+			return response.body.data.children;
+		}
 	} catch (error) {
 		spinner.fail(error);
 	}
 };
 
+// pls
+
 const iteration = () => {
-	load().then(() => {
-		inquirer
-			.prompt([
-				{
-					type: "list",
-					name: "command",
-					message: "What next?",
-					choices: [
-						"Next page",
-						"Previous page",
-						"Other subreddit",
-						"Sort by " + (sort === "hot" ? "Top All Time" : "Hot")
-					]
-				}
-			])
-			.then(async answer => {
-				log(answer.command);
-				switch (answer.command) {
-					case "Next page":
-						afterOrBefore = "after=t3_" + lastPost;
-						break;
-					case "Previous page":
-						afterOrBefore = "before=t3_" + firstPost;
-						break;
-					case "Other subreddit":
-						await inquirer
+	load().then(async posts => {
+		if (!browsing) {
+			await display(posts);
+			inquirer
+				.prompt([
+					{
+						type: "list",
+						name: "command",
+						message: "What next?",
+						choices: [
+							"Next page",
+							"Previous page",
+							"Browse",
+							"Other subreddit",
+							"Sort by " +
+								(sort === "hot" ? "Top All Time" : "Hot")
+						]
+					}
+				])
+				.then(async answer => {
+					switch (answer.command) {
+						case "Next page":
+							afterOrBefore = "after=t3_" + lastPost;
+							break;
+						case "Previous page":
+							afterOrBefore = "before=t3_" + firstPost;
+							break;
+						case "Browse":
+							browsing = true;
+							break;
+						case "Other subreddit":
+							await inquirer
+								.prompt({
+									name: "chosenSub",
+									message:
+										"Which subreddit would you like to visit next ?"
+								})
+								.then(answer => {
+									sub = "r/" + answer.chosenSub;
+								});
+							break;
+						case "Sort by Top All Time":
+							sort = "top";
+							afterOrBefore = "";
+							break;
+						case "Sort by Hot":
+							sort = "hot";
+							afterOrBefore = "";
+							break;
+						default:
+							log("default");
+					}
+					iteration();
+				});
+		} else {
+			await display(posts);
+			inquirer
+				.prompt({
+					type: "input",
+					name: "chosenPostIndex",
+					message: "Choose a post to display"
+				})
+				.then(async answer => {
+					let i = Number(await answer.chosenPostIndex);
+					if (i && i >= 0 && i < posts.length) {
+						displayPost(posts[i]);
+						inquirer
 							.prompt({
-								name: "chosenSub",
-								message:
-									"Which subreddit would you like to visit next ?"
+								type: "autosubmit",
+								name: "char",
+								message: "Press any key to return",
+								autoSubmit: input => input.length > 0
 							})
-							.then(answer => {
-								sub = "r/" + answer.chosenSub;
-							});
-						break;
-					case "Sort by Top All Time":
-						sort = "top";
-						afterOrBefore = "";
-						break;
-					case "Sort by Hot":
-						sort = "hot";
-						afterOrBefore = "";
-						break;
-					default:
-						log("default");
-				}
-				iteration();
-			});
+							.then(_ => iteration());
+					} else {
+						browsing = false;
+						iteration();
+					}
+				});
+		}
 	});
 };
 
