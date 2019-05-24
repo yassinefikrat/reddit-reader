@@ -147,7 +147,7 @@ const iteration = () => {
 				})
 				.then(async answer => {
 					let i = Number(await answer.chosenPostIndex);
-					if (i && i >= 0 && i < posts.length) {
+					if (i != undefined && i >= 0 && i < posts.length) {
 						displayPost(posts[i]);
 						inquirer
 							.prompt({
