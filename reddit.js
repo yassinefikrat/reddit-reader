@@ -11,6 +11,7 @@ const log = console.log;
 const clear = console.clear;
 const subStyle = chalk.magentaBright;
 const postStyle = chalk.blue;
+const numberStyle = chalk.bold;
 const errorStyle = chalk.red;
 
 let sort = "hot";
@@ -30,12 +31,10 @@ program
 
 if (typeof sub === "undefined") sub = "r/all";
 
-const spinner = ora("Opening " + subStyle(sub)).start();
-
 const display = posts => {
 	clear();
 	posts.forEach((post, index) => {
-		log(postStyle(post.data.title));
+		log(numberStyle(index + 1) + ": " + postStyle(post.data.title));
 	});
 	log();
 	firstPost = posts[0].data.id;
@@ -56,6 +55,7 @@ const showError = error => {
 };
 
 const load = async () => {
+	const spinner = ora("Opening " + subStyle(sub)).start();
 	try {
 		let params = "";
 		if (sort === "top") params = "?t=all";
@@ -147,8 +147,8 @@ const iteration = () => {
 				})
 				.then(async answer => {
 					let i = Number(await answer.chosenPostIndex);
-					if (i != undefined && i >= 0 && i < posts.length) {
-						displayPost(posts[i]);
+					if (i != undefined && i > 0 && i <= posts.length) {
+						displayPost(posts[i - 1]); // So post numbers start at 1.
 						inquirer
 							.prompt({
 								type: "autosubmit",
