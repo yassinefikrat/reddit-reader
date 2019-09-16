@@ -4,6 +4,7 @@ const ora = require("ora");
 const boxen = require("boxen");
 const got = require("got");
 const inquirer = require("inquirer");
+const terminalImage = require("terminal-image");
 
 inquirer.registerPrompt("autosubmit", require("inquirer-autosubmit-prompt"));
 
@@ -20,6 +21,7 @@ let firstPost = "";
 let lastPost = "";
 let browsing = false;
 let currentPost = {};
+let currentUrl = "";
 
 program
 	.version("1.0.0", "-v, --version")
@@ -41,11 +43,21 @@ const display = posts => {
 	lastPost = posts[posts.length - 1].data.id;
 };
 
-const displayPost = post => {
+const displayPost = async post => {
 	clear();
 	log(postStyle(post.data.title));
-	log(post.data.selftext);
+	const wrappedText = wrap(post.data.selftext, 100);
+	log(wrappedText);
 	log();
+};
+
+const displayImage = async (url, force) => {
+	if(force || (/\.(gif|jpg|jpeg|tiff|png)$/i).test(url)) {
+		const { body } = await got(url, { encoding: null });
+		log(await terminalImage.buffer(body));
+	} else {
+		log("Doesn't look like "+url+" is an image. Enter 'if' to force.")
+	}
 };
 
 const titleOfPost = post => (post.data.title ? post.data.title : "");
@@ -148,15 +160,8 @@ const iteration = () => {
 				.then(async answer => {
 					let i = Number(await answer.chosenPostIndex);
 					if (i != undefined && i > 0 && i <= posts.length) {
-						displayPost(posts[i - 1]); // So post numbers start at 1.
-						inquirer
-							.prompt({
-								type: "autosubmit",
-								name: "char",
-								message: "Press any key to return",
-								autoSubmit: input => input.length > 0
-							})
-							.then(_ => iteration());
+						await displayPost(posts[i - 1]); // So post numbers start at 1.
+						promptAtPostLevel(posts[i - 1]);
 					} else {
 						browsing = false;
 						iteration();
@@ -164,6 +169,34 @@ const iteration = () => {
 				});
 		}
 	});
+};
+
+const promptAtPostLevel = post => {
+	inquirer
+		.prompt({
+			type: "autosubmit",
+			name: "char",
+			message: "i to display image, b to go back"
+		})
+		.then(async answer => {
+			switch (answer.char) {
+				case "i":
+					await displayImage(post.data.url, false);
+					promptAtPostLevel(post);
+					break;
+				case "if":
+					await displayImage(post.data.url, true);
+					promptAtPostLevel(post);
+					break;
+				case "b":
+					iteration();
+					break;
+				default:
+					await displayPost(post);
+					promptAtPostLevel(post);
+					break;
+			}
+		});
 };
 
 const promptForSub = () => {
@@ -174,5 +207,11 @@ const promptForSub = () => {
 
 	return inquirer.prompt(options);
 };
+
+const wrap = (s, w) =>
+	s.replace(
+		new RegExp(`(?![^\\n]{1,${w}}$)([^\\n]{1,${w}})\\s`, "g"),
+		"$1\n"
+	);
 
 iteration();
